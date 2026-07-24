@@ -14,8 +14,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      SQLALCHEMY_URL: postgresql+psycopg://postgres:secret@db:5432/linkspy
-      DATABASE_URL: host=db port=5432 dbname=linkspy user=postgres password=secret
+      DATABASE_URL: postgresql+psycopg://postgres:secret@db:5432/linkspy
       BASE_URL: http://127.0.0.1:8000
     depends_on:
       - db

@@ -3,22 +3,19 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, HttpUrl
 import random
 import string
-import psycopg
 import os
 from dotenv import load_dotenv
 import logging
 from fastapi import Depends
-from psycopg_pool import ConnectionPool
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 load_dotenv()
-SQLALCHEMY_URL = os.getenv("SQLALCHEMY_URL")
-engine = create_engine(SQLALCHEMY_URL)
 DATABASE_URL = os.getenv("DATABASE_URL")
 BASE_URL = os.getenv("BASE_URL")
+engine = create_engine(DATABASE_URL)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,7 +30,7 @@ class Base(DeclarativeBase):
     pass
 
 
-class SQLLinkStore:
+class LinkStore:
     def __init__(self):
         Base.metadata.create_all(engine)
 
@@ -85,59 +82,6 @@ def generate_code():
     return "".join(random.choice(letters) for _ in range(6))
 
 
-class LinkStore:
-    def __init__(self):
-        self.pool = ConnectionPool(DATABASE_URL, min_size=2, max_size=10, open=True)
-        self._create_table()
-
-    def _create_table(self):
-        with self.pool.connection() as conn:       
-            with conn.cursor() as cur:             
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS links (
-                        code TEXT PRIMARY KEY,
-                        original_url TEXT NOT NULL,
-                        clicks INTEGER NOT NULL DEFAULT 0
-                    )
-                """)
-        logger.info("Таблица links готова")
-
-    def add(self, original_url):
-        for attempt in range(5):
-            code = generate_code()
-            try:
-                with self.pool.connection() as conn:
-                    with conn.cursor() as cur:
-                        cur.execute(
-                            "INSERT INTO links (code, original_url) VALUES (%s, %s)",
-                            (code, original_url),
-                        )
-                return code
-            except psycopg.errors.UniqueViolation:
-                pass
-        raise RuntimeError("Не удалось подобрать свободный код")
-
-    def get(self, code):
-        with self.pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT code, original_url, clicks FROM links WHERE code = %s",
-                    (code,),
-                )
-                row = cur.fetchone()
-        if row is None:
-            return None
-        return {"code": row[0], "original_url": row[1], "clicks": row[2]}
-
-    def add_click(self, code):
-        with self.pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "UPDATE links SET clicks = clicks + 1 WHERE code = %s",
-                    (code,),
-                )
-
-
 class MemoryStore:
     def __init__(self):
         self.links = {}
@@ -160,7 +104,7 @@ real_store = None
 def get_store():
     global real_store
     if real_store is None:
-        real_store = SQLLinkStore()
+        real_store = LinkStore()
     return real_store
 
 
