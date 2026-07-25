@@ -11,6 +11,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from datetime import datetime
 
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -31,9 +32,7 @@ class Base(DeclarativeBase):
 
 
 class LinkStore:
-    def __init__(self):
-        Base.metadata.create_all(engine)
-
+    
     def add(self, original_url):
         for attempt in range(5):
             code = generate_code()
@@ -60,9 +59,10 @@ class LinkStore:
                 link.clicks += 1
                 session.commit()
 
+
 class Link(Base):
     __tablename__ = "links"
-
+    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
     code: Mapped[str] = mapped_column(primary_key=True)
     original_url: Mapped[str]
     clicks: Mapped[int] = mapped_column(default=0)
