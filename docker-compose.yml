@@ -16,6 +16,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:secret@db:5432/linkspy
       BASE_URL: http://127.0.0.1:8000
+      JWT_SECRET: super-secret-change-me-later
     depends_on:
       - db
 

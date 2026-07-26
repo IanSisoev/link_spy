@@ -1,15 +1,19 @@
 from fastapi.testclient import TestClient
-from main import app, get_store, MemoryStore, generate_code
+from main import app, get_store, get_current_user, MemoryStore, generate_code
 
 
 memory = MemoryStore()
 app.dependency_overrides[get_store] = lambda: memory
+app.dependency_overrides[get_current_user] = lambda: "testuser"
 
 client = TestClient(app)
 
 
 def test_create_and_redirect():
-    response = client.post("/shorten", json={"original_url": "https://google.com"})
+    response = client.post(
+        "/shorten",
+        json={"original_url": "https://google.com"}
+        )
     assert response.status_code == 200
     code = response.json()["code"]
     response = client.get("/" + code, follow_redirects=False)
