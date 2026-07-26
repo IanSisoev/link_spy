@@ -8,15 +8,14 @@ from dotenv import load_dotenv
 import logging
 from fastapi import Depends
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 BASE_URL = os.getenv("BASE_URL")
-engine = create_engine(DATABASE_URL)
+engine = create_async_engine(DATABASE_URL)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,32 +31,31 @@ class Base(DeclarativeBase):
 
 
 class LinkStore:
-    
-    def add(self, original_url):
+    async def add(self, original_url):
         for attempt in range(5):
             code = generate_code()
             try:
-                with Session(engine) as session:
+                async with AsyncSession(engine) as session:
                     session.add(Link(code=code, original_url=original_url))
-                    session.commit()
+                    await session.commit()
                 return code
             except IntegrityError:
                 pass
         raise RuntimeError("Не удалось подобрать свободный код")
 
-    def get(self, code):
-        with Session(engine) as session:
-            link = session.get(Link, code)
+    async def get(self, code):
+        async with AsyncSession(engine) as session:
+            link = await session.get(Link, code)
             if link is None:
                 return None
             return {"code": link.code, "original_url": link.original_url, "clicks": link.clicks}
 
-    def add_click(self, code):
-        with Session(engine) as session:
-            link = session.get(Link, code)
+    async def add_click(self, code):
+        async with AsyncSession(engine) as session:
+            link = await session.get(Link, code)
             if link is not None:
                 link.clicks += 1
-                session.commit()
+                await session.commit()
 
 
 class Link(Base):
@@ -86,15 +84,15 @@ class MemoryStore:
     def __init__(self):
         self.links = {}
 
-    def add(self, original_url):
+    async def add(self, original_url):
         code = generate_code()
         self.links[code] = {"code": code, "original_url": original_url, "clicks": 0}
         return code
 
-    def get(self, code):
+    async def get(self, code):
         return self.links.get(code)
 
-    def add_click(self, code):
+    async def add_click(self, code):
         self.links[code]["clicks"] += 1
 
 
@@ -109,8 +107,8 @@ def get_store():
 
 
 @app.post("/shorten", response_model=ShortenResponse)
-def shorten(request: ShortenRequest, store=Depends(get_store)):
-    code = store.add(str(request.original_url))
+async def shorten(request: ShortenRequest, store=Depends(get_store)):
+    code = await store.add(str(request.original_url))
     logger.info("Создана ссылка: %s -> %s", code, request.original_url)
     return ShortenResponse(
         code=code,
@@ -119,19 +117,19 @@ def shorten(request: ShortenRequest, store=Depends(get_store)):
 
 
 @app.get("/stats/{code}")
-def stats(code, store=Depends(get_store)):
-    link = store.get(code)
+async def stats(code, store=Depends(get_store)):
+    link = await store.get(code)
     if link is None:
         raise HTTPException(status_code=404, detail="Ссылка не найдена")
     return link
 
 
 @app.get("/{code}")
-def redirect(code, store=Depends(get_store)):
-    link = store.get(code)
+async def redirect(code, store=Depends(get_store)):
+    link = await store.get(code)
     if link is None:
         logger.warning("Переход по несуществующему коду: %s", code)
         raise HTTPException(status_code=404, detail="Ссылка не найдена")
-    store.add_click(code)
+    await store.add_click(code)
     logger.info("Переход по коду: %s", code)
     return RedirectResponse(link["original_url"])
