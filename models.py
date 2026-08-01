@@ -6,7 +6,9 @@ from sqlalchemy import ForeignKey
 
 class Link(Base):
     __tablename__ = "links"
-    owner: Mapped[str | None] = mapped_column(ForeignKey("users.username"))
+    owner: Mapped[str | None] = mapped_column(
+        ForeignKey("users.username"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
     code: Mapped[str] = mapped_column(primary_key=True)
     original_url: Mapped[str]

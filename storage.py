@@ -1,6 +1,6 @@
 import random
 import string
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import engine
@@ -54,10 +54,12 @@ class LinkStore:
 
     async def add_click(self, code):
         async with AsyncSession(engine) as session:
-            link = await session.get(Link, code)
-            if link is not None:
-                link.clicks += 1
-                await session.commit()
+            await session.execute(
+                update(Link)
+                .where(Link.code == code)
+                .values(clicks=Link.clicks + 1)
+            )
+            await session.commit()
 
 
 class MemoryStore:
