@@ -6,6 +6,8 @@ from sqlalchemy import ForeignKey
 
 class Link(Base):
     __tablename__ = "links"
+    # Пустой owner — у ссылок, созданных до появления авторизации.
+    # Индекс — под фильтр по владельцу в /my/links
     owner: Mapped[str | None] = mapped_column(
         ForeignKey("users.username"), index=True
     )

@@ -87,6 +87,8 @@ async def my_links(
     return await store.get_by_owner(current_user)
 
 
+# Должен оставаться последним: ловит любой одиночный путь,
+# и всё объявленное ниже до своего роута не дойдёт
 @app.get("/{code}")
 async def redirect(code, store=Depends(get_store)):
     link = await store.get(code)

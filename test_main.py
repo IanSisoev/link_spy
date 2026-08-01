@@ -76,6 +76,7 @@ def test_my_links_shows_only_own_links():
 
 
 def test_shorten_requires_token():
+    # Снимаем подмену, чтобы отработала настоящая проверка токена
     app.dependency_overrides.pop(get_current_user)
     try:
         response = client.post(
@@ -84,6 +85,8 @@ def test_shorten_requires_token():
             )
         assert response.status_code == 401
     finally:
+        # finally обязателен: упавший assert иначе оставит подмену снятой,
+        # и посыплются следующие тесты
         app.dependency_overrides[get_current_user] = lambda: "testuser"
 
 
@@ -95,6 +98,7 @@ def test_register_and_login():
     assert response.status_code == 200
 
     response = client.post(
+        # /login принимает форму, а не JSON — так требует OAuth2
         "/login",
         data={"username": "alice", "password": "secret123"}
         )

@@ -5,6 +5,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import engine
 from models import Link, User
+# Код ошибки PostgreSQL: нарушение уникальности
+UNIQUE_VIOLATION = "23505"
 
 
 def generate_code():
@@ -24,7 +26,9 @@ class LinkStore:
                     await session.commit()
                 return code
             except IntegrityError as error:
-                if getattr(error.orig, "sqlstate", None) != "23505":
+                # Повтором лечится только занятый код; остальное —
+                # например, несуществующий owner — пробрасываем как есть
+                if getattr(error.orig, "sqlstate", None) != UNIQUE_VIOLATION:
                     raise
         raise RuntimeError("Не удалось подобрать свободный код")
 
@@ -54,6 +58,8 @@ class LinkStore:
             ]
 
     async def add_click(self, code):
+        # Прибавляет база, а не Python: при двух одновременных переходах
+        # чтение-и-запись на нашей стороне потеряли бы один клик
         async with AsyncSession(engine) as session:
             await session.execute(
                 update(Link)
@@ -64,6 +70,11 @@ class LinkStore:
 
 
 class MemoryStore:
+    """Хранилище в памяти для тестов.
+
+    Обязано повторять интерфейс и форму ответов LinkStore: разойдутся —
+    и тесты начнут проверять поведение, которого нет в проде.
+    """
     def __init__(self):
         self.links = {}
 
@@ -125,6 +136,8 @@ class UserStore:
             }
 
     async def add(self, username, password_hash):
+        # Не проверяем занятость логина заранее: между проверкой и вставкой
+        # успел бы влезть второй такой же запрос. Уникальность стережёт база
         async with AsyncSession(engine) as session:
             session.add(User(username=username, password_hash=password_hash))
             try:

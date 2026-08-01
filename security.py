@@ -24,11 +24,15 @@ def create_token(username: str) -> str:
 
 
 def hash_password(password: str) -> str:
+    # bcrypt работает максимум с 72 байтами — обрезаем сами, чтобы
+    # длинный пароль не ломал хеширование
     password_bytes = password.encode("utf-8")[:72]
     return bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, password_hash: str) -> bool:
+    # Обрезка должна быть ровно такой же, как в hash_password,
+    # иначе проверка не сойдётся
     password_bytes = password.encode("utf-8")[:72]
     return bcrypt.checkpw(password_bytes, password_hash.encode("utf-8"))
 
