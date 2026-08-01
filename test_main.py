@@ -42,3 +42,25 @@ def test_generate_code_unique():
     code1 = generate_code()
     code2 = generate_code()
     assert code1 != code2
+
+
+def test_my_links_shows_only_own_links():
+    response = client.post(
+        "/shorten",
+        json={"original_url": "https://example.com"}
+        )
+    my_code = response.json()["code"]
+
+    memory.links["stranger"] = {
+        "code": "stranger",
+        "original_url": "https://other.com",
+        "clicks": 0,
+        "owner": "someone_else",
+        }
+
+    response = client.get("/my/links")
+    assert response.status_code == 200
+
+    codes = [link["code"] for link in response.json()]
+    assert my_code in codes
+    assert "stranger" not in codes

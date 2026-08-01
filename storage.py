@@ -1,9 +1,8 @@
 import random
 import string
-
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from database import engine
 from models import Link
 
@@ -39,6 +38,20 @@ class LinkStore:
                 "clicks": link.clicks
                 }
 
+    async def get_by_owner(self, owner):
+        async with AsyncSession(engine) as session:
+            result = await session.execute(
+                select(Link).where(Link.owner == owner)
+            )
+            return [
+                {
+                    "code": link.code,
+                    "original_url": link.original_url,
+                    "clicks": link.clicks,
+                }
+                for link in result.scalars()
+            ]
+
     async def add_click(self, code):
         async with AsyncSession(engine) as session:
             link = await session.get(Link, code)
@@ -63,6 +76,20 @@ class MemoryStore:
 
     async def get(self, code):
         return self.links.get(code)
+
+    async def get_by_owner(self, owner):
+        async with AsyncSession(engine) as session:
+            result = await session.execute(
+                select(Link).where(Link.owner == owner)
+            )
+            return [
+                {
+                    "code": link.code,
+                    "original_url": link.original_url,
+                    "clicks": link.clicks,
+                }
+                for link in result.scalars()
+            ]
 
     async def add_click(self, code):
         self.links[code]["clicks"] += 1

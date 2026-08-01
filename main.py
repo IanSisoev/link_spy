@@ -85,6 +85,14 @@ async def stats(code, store=Depends(get_store)):
     return link
 
 
+@app.get("/my/links")
+async def my_links(
+    store=Depends(get_store),
+    current_user: str = Depends(get_current_user),
+):
+    return await store.get_by_owner(current_user)
+
+
 @app.get("/{code}")
 async def redirect(code, store=Depends(get_store)):
     link = await store.get(code)
