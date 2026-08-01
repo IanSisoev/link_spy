@@ -14,12 +14,14 @@ def generate_code():
 
 
 class LinkStore:
-    async def add(self, original_url):
+    async def add(self, original_url, owner):
         for _ in range(5):
             code = generate_code()
             try:
                 async with AsyncSession(engine) as session:
-                    session.add(Link(code=code, original_url=original_url))
+                    session.add(
+                        Link(code=code, original_url=original_url, owner=owner)
+                    )
                     await session.commit()
                 return code
             except IntegrityError:
@@ -49,12 +51,13 @@ class MemoryStore:
     def __init__(self):
         self.links = {}
 
-    async def add(self, original_url):
+    async def add(self, original_url, owner):
         code = generate_code()
         self.links[code] = {
             "code": code,
             "original_url": original_url,
-            "clicks": 0
+            "clicks": 0,
+            "owner": owner,
             }
         return code
 

@@ -67,7 +67,7 @@ async def shorten(
     store=Depends(get_store),
     current_user: str = Depends(get_current_user),
 ):
-    code = await store.add(str(request.original_url))
+    code = await store.add(str(request.original_url), current_user)
     logger.info(
         "Создана ссылка пользователем %s: %s -> %s",
         current_user,
