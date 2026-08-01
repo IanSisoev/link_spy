@@ -1,5 +1,7 @@
 from fastapi.testclient import TestClient
-from main import app, get_store, get_current_user, MemoryStore, generate_code
+from main import app
+from security import get_current_user
+from storage import get_store, MemoryStore, generate_code
 
 
 memory = MemoryStore()
