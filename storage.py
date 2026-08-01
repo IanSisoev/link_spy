@@ -78,18 +78,15 @@ class MemoryStore:
         return self.links.get(code)
 
     async def get_by_owner(self, owner):
-        async with AsyncSession(engine) as session:
-            result = await session.execute(
-                select(Link).where(Link.owner == owner)
-            )
-            return [
-                {
-                    "code": link.code,
-                    "original_url": link.original_url,
-                    "clicks": link.clicks,
-                }
-                for link in result.scalars()
-            ]
+        return [
+            {
+                "code": link["code"],
+                "original_url": link["original_url"],
+                "clicks": link["clicks"],
+            }
+            for link in self.links.values()
+            if link["owner"] == owner
+        ]
 
     async def add_click(self, code):
         self.links[code]["clicks"] += 1
