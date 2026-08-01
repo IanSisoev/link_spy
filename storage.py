@@ -1,15 +1,15 @@
-import random
+import secrets
 import string
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import engine
-from models import Link
+from models import Link, User
 
 
 def generate_code():
     letters = string.ascii_letters + string.digits
-    return "".join(random.choice(letters) for _ in range(6))
+    return "".join(secrets.choice(letters) for _ in range(6))
 
 
 class LinkStore:
@@ -23,8 +23,9 @@ class LinkStore:
                     )
                     await session.commit()
                 return code
-            except IntegrityError:
-                pass
+            except IntegrityError as error:
+                if getattr(error.orig, "sqlstate", None) != "23505":
+                    raise
         raise RuntimeError("Не удалось подобрать свободный код")
 
     async def get(self, code):
@@ -77,7 +78,18 @@ class MemoryStore:
         return code
 
     async def get(self, code):
-        return self.links.get(code)
+        link = self.links.get(code)
+        if link is None:
+            return None
+        return {
+            "code": link["code"],
+            "original_url": link["original_url"],
+            "clicks": link["clicks"],
+        }
+
+    async def add_click(self, code):
+        if code in self.links:
+            self.links[code]["clicks"] += 1
 
     async def get_by_owner(self, owner):
         return [
@@ -90,9 +102,6 @@ class MemoryStore:
             if link["owner"] == owner
         ]
 
-    async def add_click(self, code):
-        self.links[code]["clicks"] += 1
-
 
 real_store = None
 
@@ -102,3 +111,57 @@ def get_store():
     if real_store is None:
         real_store = LinkStore()
     return real_store
+
+
+class UserStore:
+    async def get(self, username):
+        async with AsyncSession(engine) as session:
+            user = await session.get(User, username)
+            if user is None:
+                return None
+            return {
+                "username": user.username,
+                "password_hash": user.password_hash,
+            }
+
+    async def add(self, username, password_hash):
+        async with AsyncSession(engine) as session:
+            session.add(User(username=username, password_hash=password_hash))
+            try:
+                await session.commit()
+            except IntegrityError:
+                return False
+        return True
+
+
+class MemoryUserStore:
+    def __init__(self):
+        self.users = {}
+
+    async def get(self, username):
+        user = self.users.get(username)
+        if user is None:
+            return None
+        return {
+            "username": user["username"],
+            "password_hash": user["password_hash"],
+        }
+
+    async def add(self, username, password_hash):
+        if username in self.users:
+            return False
+        self.users[username] = {
+            "username": username,
+            "password_hash": password_hash,
+        }
+        return True
+
+
+real_user_store = None
+
+
+def get_user_store():
+    global real_user_store
+    if real_user_store is None:
+        real_user_store = UserStore()
+    return real_user_store

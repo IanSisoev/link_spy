@@ -4,13 +4,10 @@ import os
 from dotenv import load_dotenv
 import logging
 from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.security import OAuth2PasswordRequestForm
 from schemas import RegisterRequest, ShortenRequest, ShortenResponse
-from database import engine
-from models import User
 from security import hash_password, verify_password, create_token, get_current_user
-from storage import get_store
+from storage import get_store, get_user_store
 
 
 load_dotenv()
@@ -27,31 +24,28 @@ app = FastAPI()
 
 
 @app.post("/register")
-async def register(request: RegisterRequest):
-    async with AsyncSession(engine) as session:
-        existing = await session.get(User, request.username)
-        if existing is not None:
-            raise HTTPException(
-                status_code=409,
-                detail="Пользователь уже существует"
-                )
-
-        user = User(
-            username=request.username,
-            password_hash=hash_password(request.password),
-        )
-        session.add(user)
-        await session.commit()
-
+async def register(request: RegisterRequest, store=Depends(get_user_store)):
+    created = await store.add(
+        request.username, hash_password(request.password)
+    )
+    if not created:
+        raise HTTPException(
+            status_code=409,
+            detail="Пользователь уже существует"
+            )
     return {"username": request.username}
 
 
 @app.post("/login")
-async def login(form: OAuth2PasswordRequestForm = Depends()):
-    async with AsyncSession(engine) as session:
-        user = await session.get(User, form.username)
+async def login(
+    form: OAuth2PasswordRequestForm = Depends(),
+    store=Depends(get_user_store),
+):
+    user = await store.get(form.username)
 
-    if user is None or not verify_password(form.password, user.password_hash):
+    if user is None or not verify_password(
+        form.password, user["password_hash"]
+    ):
         raise HTTPException(
             status_code=401,
             detail="Неверный логин или пароль"
