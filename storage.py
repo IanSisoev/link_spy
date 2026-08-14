@@ -5,6 +5,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from db_connecting import engine
 from db_models import Link, User
+
+
 # Код ошибки PostgreSQL: нарушение уникальности
 UNIQUE_VIOLATION = "23505"
 
