@@ -5,9 +5,10 @@ from dotenv import load_dotenv
 import logging
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordRequestForm
-from schemas import RegisterRequest, ShortenRequest, ShortenResponse
+from api_schemas import RegisterRequest, ShortenRequest, ShortenResponse
 from security import hash_password, verify_password, create_token, get_current_user
 from storage import get_store, get_user_store
+from fastapi.concurrency import run_in_threadpool
 
 
 load_dotenv()
@@ -25,9 +26,8 @@ app = FastAPI()
 
 @app.post("/register")
 async def register(request: RegisterRequest, store=Depends(get_user_store)):
-    created = await store.add(
-        request.username, hash_password(request.password)
-    )
+    password_hash = await run_in_threadpool(hash_password, request.password)
+    created = await store.add(request.username, password_hash)
     if not created:
         raise HTTPException(
             status_code=409,
@@ -43,8 +43,8 @@ async def login(
 ):
     user = await store.get(form.username)
 
-    if user is None or not verify_password(
-        form.password, user["password_hash"]
+    if user is None or not await run_in_threadpool(
+        verify_password, form.password, user["password_hash"]
     ):
         raise HTTPException(
             status_code=401,

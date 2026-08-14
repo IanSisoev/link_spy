@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
-from database import Base
-import models  # noqa: F401
+from db_connecting import Base
+import db_models  # noqa: F401
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
